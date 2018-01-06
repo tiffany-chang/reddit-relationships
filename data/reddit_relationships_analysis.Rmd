@@ -1,0 +1,262 @@
+---
+title: "reddit relationships analysis"
+author: "Tiffany Chang"
+date: "1/5/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Import Packages
+
+```{r }
+options(repos="https://cran.rstudio.com")
+
+#install.packages("dplyr")
+library(dplyr)
+
+#install.packages("stringr")
+library(stringr)
+
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("reshape2")
+library(reshape2)
+
+#install.packages("tidytext")
+library(tidytext)
+```
+
+## Import Data
+
+```{r }
+rel = read.csv("out.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(rel)
+```
+
+Let's extract the posts into its own dataframe, and convert the text to lowercase:
+
+```{r }
+text = rel$Title
+text_df = data_frame(line = 1:length(text), text = text)
+text_lower = tolower(text_df$text)
+```
+
+## Questions to Answer
+
+Here are some iniial questions we are trying to answer:
+
++ What are the ages and genders of those involved?
++ How long have they been together? 
++ What are the most common words? 
++ What is the sentiment in the posts? 
++ What kind of relationships are there? (husband, wife, boyfriend, girlfriend, brother, sister, etc.)
+
+## What are the ages and genders of those involved?
+
+These are the main patterns for indicating age and gender in the posts. They are often enclosed by parenthesis ( ) or square brackets [ ]:
+
++ Age and then Gender - i.e. "25 F", "30M"
++ Age/Gender - i.e. "25/F", "30/M" 
++ Gender and then Age - i.e. "F 25", "M30"
++ Gender/Age - i.e. "F/25", "M/30"
+
+What we want to do is extract the ages and genders by identifying these patterns in each post, using regex.
+
+First, we'll identify the first pattern, where the age comes before gender. Let's break down what the regex means: 
+
++ **(\\(|\\[){1}** - Match ( or [ once. 
++ **[[:digit:]]{1,3}** - Match a digit between 1 and 3 times. 
++ ** */* * ** - Match 0 or more spaces, match 0 or more slashes, then match 0 or more spaces.
++ **(m|f)+** - Match m or f at least once. 
++ **(\\)|\\]){1}** - Match ) or ] once.
+
+```{r }
+age_gender_pattern_v1 = "(\\(|\\[){1}[[:digit:]]{1,3} */* *(m|f)+(\\)|\\]){1}"
+
+age_gender_all_v1 = str_extract_all(text_lower, age_gender_pattern_v1, simplify = TRUE)
+
+head(age_gender_all_v1)
+```
+
+Now, let's check which rows are blank. These did not get extracted properly:
+
+```{r }
+age_gender_all_v1_not_blank = which(age_gender_all_v1[,1] != "")
+
+age_gender_all_v1_blank = which(age_gender_all_v1[,1] == "")
+
+```
+
+Now, let's repeat for the pattern in which gender comes before age. This pattern is much less common the previous pattern. The logic is the same: 
+
+```{r }
+age_gender_pattern_v2 = "(\\(|\\[){1}(m|f)+ */* *[[:digit:]]{1,3}(\\)|\\]){1}"
+
+age_gender_all_v2 = str_extract_all(text_lower, age_gender_pattern_v2, simplify = TRUE)
+
+age_gender_all_v2_not_blank = which(age_gender_all_v2[,1] != "")
+
+age_gender_all_v2_blank = which(age_gender_all_v2[,1] == "")
+
+```
+
+Let's check which rows are still missing after extracting using both of these patterns:
+
+```{r }
+all_indices = 1:length(text_lower)
+
+still_missing = all_indices[!((all_indices %in% age_gender_all_v1_not_blank) | (all_indices %in% age_gender_all_v2_not_blank))]
+
+text_lower[still_missing]
+```
+
+In these cases, it looks like they used a unique pattern or did not include their age or gender. We can ignore these cases for now.
+
+First, let's melt the dataframes so we can retain the row numbers (i.e. the post number): 
+
+```{r }
+age_gender_all_v1_melt = setNames(melt(age_gender_all_v1), c("row", "col", "value"))
+head(age_gender_all_v1_melt)
+```
+
+```{r }
+age_gender_all_v2_melt = setNames(melt(age_gender_all_v2), c("row", "col", "value"))
+head(age_gender_all_v2_melt)
+```
+
+Now, we'll bind the two dataframes together: 
+
+```{r }
+age_gender_all_combined_df = rbind(age_gender_all_v1_melt, age_gender_all_v2_melt)
+age_gender_all_combined_df$value = as.character(age_gender_all_combined_df$value)
+head(age_gender_all_combined_df)
+```
+
+We'll extract the rows that are not blank:
+
+```{r }
+age_gender_all_combined_df = age_gender_all_combined_df[which(age_gender_all_combined_df[,3] != ""),]
+head(age_gender_all_combined_df)
+```
+
+Now, let's extract the ages and genders separately so we can look at the distributions of each.
+
+```{r }
+age = str_extract_all(age_gender_all_combined_df[,3], "[[:digit:]]{1,2}", simplify = TRUE)
+age = as.numeric(age)
+gender = str_extract_all(age_gender_all_combined_df[,3], "(m|f){1}", simplify = TRUE) 
+```
+
+Let's add age and gender to the dataframe: 
+
+```{r }
+age_gender_all_combined_df = cbind(age_gender_all_combined_df, age, gender)
+head(age_gender_all_combined_df)
+```
+
+Now, let's plot the distribution of the ages and genders in these posts:
+
+```{r }
+# Draw with black outline, white fill
+pl = ggplot(age_gender_all_combined_df, aes(x=age))
+pl + geom_histogram(binwidth=2, colour="black", fill="white") + theme_minimal()
+```
+
+```{r }
+# Draw with black outline, white fill
+pl = ggplot(age_gender_all_combined_df, aes(x=gender, fill=gender))
+pl + geom_bar() + theme_minimal()
+```
+
+## How long have they been together? 
+
+Now let's see how they have been together. Usually, the pattern looks like a 1-2 digit number followed by a word for months or years:
+
+```{r }
+longevity_pattern_v1 = "[[:digit:]]{1,2} *(months|mo|year|years|yr|yrs){1}"
+longevity_v1 = str_extract_all(text_lower, longevity_pattern_v1, simplify = TRUE)
+head(longevity_v1)
+```
+
+Let's extract the rows that are not blank:
+
+```{r }
+longevity_v1_not_blank = which(longevity_v1[,1] != "")
+longevity_together = longevity_v1[longevity_v1_not_blank,1]
+head(longevity_together)
+```
+
+Now, let's extract the number and time unit separately: 
+
+```{r }
+num = str_extract_all(longevity_together, "[[:digit:]]{1,2}", simplify = TRUE)
+mo_yr = str_extract_all(longevity_together, "(months|mo|year|years|yr|yrs){1}", simplify = TRUE) 
+```
+
+Let's create a dataframe with the post number, the longevity of the relationship, the number, and the time unit: 
+
+```{r }
+longevity_together_df = data.frame(post_num = longevity_v1_not_blank, longevity_together, num, mo_yr)
+longevity_together_df$num = as.numeric(as.character(longevity_together_df$num))
+head(longevity_together_df)
+```
+
+Let's convert everything to years: 
+
+```{r }
+longevity_together_in_years = sapply(1:dim(longevity_together_df)[1], function(i) {
+  if (longevity_together_df$mo_yr[i] %in% c("months","mo")) {
+    return(longevity_together_df$num[i] / 12)
+  } else {
+    return(longevity_together_df$num[i])
+  }
+})
+
+longevity_together_in_years = round(longevity_together_in_years,2)
+longevity_together_df = cbind(longevity_together_df, longevity_together_in_years)
+head(longevity_together_df)
+```
+
+Now, let's plot the distribution of the longevity of the relationship in these posts:
+
+```{r }
+# Draw with black outline, white fill
+pl = ggplot(longevity_together_df, aes(x=longevity_together_in_years))
+pl + geom_histogram(binwidth=1, colour="black", fill="white") + theme_minimal()
+```
+
+## What are the most common words? 
+
+Now, we will begin our analysis of the text itself. Text Mining with R (https://www.tidytextmining.com/) provides a great guide for this.
+
+```{r }
+tidy_text = text_df %>%
+  unnest_tokens(word, text)
+```
+
+## What is the sentiment in the posts? 
+
