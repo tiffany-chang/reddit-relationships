@@ -335,7 +335,7 @@ bing_word_counts %>%
 
 ## What kind of relationships are there? (husband, wife, boyfriend, girlfriend, brother, sister, etc.)
 
-List of relationship words from: 
+Let's create a list of relationship words. List of relationship words from: 
 
 http://www.vocabulary.cl/english/family-members.htm
 
@@ -350,15 +350,19 @@ in_laws_words = c("father-in-law", "mother-in-law", "son-in-law", "daughter-in-l
 family_mix_words = c("stepfather", "stepdad", "stepmother", "stepmom", "stepson", "stepdaughter", "stepsister", "stepbrother", "half-brother", "half-sister")
 friend_other_words = c("friend", "best friend", "roommate")
 
-relationship_words = c(immediate_family_words, marriage_dating_words, ex_marriage_dating_words_v1, ex_marriage_dating_words_v2)
+relationship_words = c(immediate_family_words, marriage_dating_words, ex_marriage_dating_words_v1, ex_marriage_dating_words_v2, relatives_words, extended_family_words, in_laws_words, family_mix_words, friend_other_words)
+```
 
+Now, let's extract all of the relationship words from the text, and look at the top words:
+
+```{r }
 rel_words_test = paste(paste(relationship_words, collapse="|"), "{1}", sep="")
 
 rel_v1 = str_extract_all(text_lower, rel_words_test, simplify = TRUE)
 
 rel_v1_not_blank = which(rel_v1[,1] != "")
 
-text_lower[rel_v1_not_blank]
+# text_lower[rel_v1_not_blank]
 
 rel_v1_melt = melt(rel_v1)
 
@@ -366,15 +370,17 @@ colnames(rel_v1_melt) = c("post_number", "person_number", "relationship")
 
 is.na(rel_v1_melt$relationship) = rel_v1_melt$relationship==''
 
+top_rel_words = count(rel_v1_melt, relationship, sort = TRUE)
+
+top_rel_words
+```
+
+```{r }
 # Bar graph of counts
 ggplot(data=rel_v1_melt, aes(x=relationship)) +
   geom_bar(stat="count")
-
-rel_v1_melt[!is.na(rel_v1_melt$relationship),]
 
 # Bar graph of counts
 ggplot(data=rel_v1_melt[!is.na(rel_v1_melt$relationship),], aes(x=relationship)) +
   geom_bar(stat="count")
 ```
-
-
