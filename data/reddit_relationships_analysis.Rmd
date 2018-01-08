@@ -48,6 +48,9 @@ library(reshape2)
 
 #install.packages("tidytext")
 library(tidytext)
+
+#install.packages("tidyr")
+library(tidyr)
 ```
 
 ## Import Data
@@ -74,6 +77,7 @@ Here are some iniial questions we are trying to answer:
 + What are the most common words? 
 + What is the sentiment in the posts? 
 + What kind of relationships are there? (husband, wife, boyfriend, girlfriend, brother, sister, etc.)
++ What are the differences in how men and women describe their relationship problems?
 
 ## What are the ages and genders of those involved?
 
@@ -253,10 +257,124 @@ pl + geom_histogram(binwidth=1, colour="black", fill="white") + theme_minimal()
 
 Now, we will begin our analysis of the text itself. Text Mining with R (https://www.tidytextmining.com/) provides a great guide for this.
 
+First, we'll split each row so that there is one token (word) in each row of the new data frame:
+
 ```{r }
 tidy_text = text_df %>%
   unnest_tokens(word, text)
 ```
 
+Let's make sure to remove stop words: 
+
+```{r }
+data(stop_words)
+
+tidy_text = tidy_text %>%
+  anti_join(stop_words)
+```
+
+Let's find the most common words: 
+
+```{r }
+most_common_words = tidy_text %>%
+  count(word, sort = TRUE) 
+
+head(most_common_words, 20)
+```
+
+Let's remove any words with numbers, as these are most likely the age/gender patterns:
+
+```{r }
+most_common_words_v2 = filter(most_common_words, !str_detect(word, "[[:digit:]]+"))
+
+head(most_common_words_v2, 50)
+```
+
 ## What is the sentiment in the posts? 
+
+From Text Mining with R (https://www.tidytextmining.com/):
+
+> The tidytext package contains several sentiment lexicons in the sentiments dataset.
+
+> Dictionary-based methods like the ones we are discussing find the total sentiment of a piece of text by adding up the individual sentiment scores for each word in the text.
+
+```{r }
+post_sentiment = tidy_text %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(line, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+head(post_sentiment, 10)
+```
+
+Let's find the most common positive and negative words:
+
+```{r }
+bing_word_counts = tidy_text %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+head(bing_word_counts)
+```
+
+```{r }
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  top_n(15) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(y = "Contribution to sentiment",
+       x = NULL) +
+  coord_flip()
+```
+
+## What kind of relationships are there? (husband, wife, boyfriend, girlfriend, brother, sister, etc.)
+
+List of relationship words from: 
+
+http://www.vocabulary.cl/english/family-members.htm
+
+```{r }
+immediate_family_words = c("father", "dad", "mother", "mom", "son", "daughter", "brother", "sister", "parents")
+marriage_dating_words = c("boyfriend", "bf", "girlfriend", "gf", "fiance", "fiancee", "husband", "wife")
+ex_marriage_dating_words_v1 = paste("ex-", marriage_dating_words, sep="")
+ex_marriage_dating_words_v2 = paste("ex ", marriage_dating_words, sep="")
+relatives_words = c("grandparents", "grandfather", "grandpa", "grandmother", "grandma", "grandchildren", "grandson", "granddaughter", "great grandfather", "grand grandpa", "great grandmother", "great grandma")
+extended_family_words = c("uncle", "aunt", "cousin", "nephew", "niece")
+in_laws_words = c("father-in-law", "mother-in-law", "son-in-law", "daughter-in-law", "brother-in-law", "sister-in-law")
+family_mix_words = c("stepfather", "stepdad", "stepmother", "stepmom", "stepson", "stepdaughter", "stepsister", "stepbrother", "half-brother", "half-sister")
+friend_other_words = c("friend", "best friend", "roommate")
+
+relationship_words = c(immediate_family_words, marriage_dating_words, ex_marriage_dating_words_v1, ex_marriage_dating_words_v2)
+
+rel_words_test = paste(paste(relationship_words, collapse="|"), "{1}", sep="")
+
+rel_v1 = str_extract_all(text_lower, rel_words_test, simplify = TRUE)
+
+rel_v1_not_blank = which(rel_v1[,1] != "")
+
+text_lower[rel_v1_not_blank]
+
+rel_v1_melt = melt(rel_v1)
+
+colnames(rel_v1_melt) = c("post_number", "person_number", "relationship")
+
+is.na(rel_v1_melt$relationship) = rel_v1_melt$relationship==''
+
+# Bar graph of counts
+ggplot(data=rel_v1_melt, aes(x=relationship)) +
+  geom_bar(stat="count")
+
+rel_v1_melt[!is.na(rel_v1_melt$relationship),]
+
+# Bar graph of counts
+ggplot(data=rel_v1_melt[!is.na(rel_v1_melt$relationship),], aes(x=relationship)) +
+  geom_bar(stat="count")
+```
+
 
