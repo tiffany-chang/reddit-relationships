@@ -185,15 +185,34 @@ head(age_gender_all_combined_df)
 Now, let's plot the distribution of the ages and genders in these posts:
 
 ```{r }
-# Draw with black outline, white fill
 pl = ggplot(age_gender_all_combined_df, aes(x=age))
-pl + geom_histogram(binwidth=2, colour="black", fill="white") + theme_minimal()
+pl + geom_histogram(binwidth=2, colour="white", fill="grey") + theme_minimal()
 ```
 
 ```{r }
 # Draw with black outline, white fill
 pl = ggplot(age_gender_all_combined_df, aes(x=gender, fill=gender))
 pl + geom_bar() + theme_minimal()
+```
+
+Now, let's plot the distribution of age by gender:
+
+```{r }
+# Get ggplot 2 colors:
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+```
+
+```{r }
+pl = ggplot(filter(age_gender_all_combined_df, gender == "f"), aes(x=age))
+pl + geom_histogram(binwidth=1, colour="white", fill=gg_color_hue(1)) + theme_minimal()
+```
+
+```{r }
+pl = ggplot(filter(age_gender_all_combined_df, gender == "m"), aes(x=age))
+pl + geom_histogram(binwidth=1, colour="white", fill=gg_color_hue(2)[2]) + theme_minimal()
 ```
 
 ## How long have they been together? 
@@ -250,7 +269,7 @@ Now, let's plot the distribution of the longevity of the relationship in these p
 ```{r }
 # Draw with black outline, white fill
 pl = ggplot(longevity_together_df, aes(x=longevity_together_in_years))
-pl + geom_histogram(binwidth=1, colour="black", fill="white") + theme_minimal()
+pl + geom_histogram(binwidth=1, colour="white", fill="grey") + theme_minimal()
 ```
 
 ## What are the most common words? 
@@ -382,5 +401,5 @@ ggplot(data=rel_v1_melt, aes(x=relationship)) +
 
 # Bar graph of counts
 ggplot(data=rel_v1_melt[!is.na(rel_v1_melt$relationship),], aes(x=relationship)) +
-  geom_bar(stat="count")
+  geom_bar(stat="count", fill = "grey") + theme_minimal()
 ```
