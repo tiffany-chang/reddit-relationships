@@ -272,6 +272,25 @@ pl = ggplot(longevity_together_df, aes(x=longevity_together_in_years))
 pl + geom_histogram(binwidth=1, colour="white", fill="grey") + theme_minimal()
 ```
 
+We need to create a data set with 
+
++ Line Number
++ Word
++ Sentiment
++ Line
+
+```{r }
+longevity_together_df_v1 = longevity_together_df %>% 
+  rename(line = 'post_num') %>%
+  inner_join(text_df)
+
+head(longevity_together_df_v1)
+```
+
+```{r }
+write.csv(longevity_together_df_v1, file = "longevity_together_df_v1.csv",row.names=FALSE)
+```
+
 ## What are the most common words? 
 
 Now, we will begin our analysis of the text itself. Text Mining with R (https://www.tidytextmining.com/) provides a great guide for this.
