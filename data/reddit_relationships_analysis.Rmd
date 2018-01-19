@@ -352,6 +352,41 @@ bing_word_counts %>%
   coord_flip()
 ```
 
+We need to create a data set with 
+
++ Line Number
++ Word
++ Sentiment
++ Line
+
+```{r }
+most_common_words_df_v1 = tidy_text %>%
+  inner_join(get_sentiments("bing")) %>%
+  inner_join(text_df)
+
+head(most_common_words_df_v1)
+```
+
+```{r }
+write.csv(most_common_words_df_v1, file = "most_common_words_df_v1.csv",row.names=FALSE)
+```
+
+We also need to create a data set with 
+
++ Word
++ Negative or Positive
++ Contribution to sentiment
+
+```{r }
+most_common_words_df_v2 = bing_word_counts
+
+head(most_common_words_df_v2)
+```
+
+```{r }
+write.csv(most_common_words_df_v2, file = "most_common_words_df_v2.csv",row.names=FALSE)
+```
+
 ## What kind of relationships are there? (husband, wife, boyfriend, girlfriend, brother, sister, etc.)
 
 Let's create a list of relationship words. List of relationship words from: 
